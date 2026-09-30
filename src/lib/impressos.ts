@@ -76,3 +76,16 @@ export function totais(itens: ImpressoBase[]): Totais {
     margemPct: receita > 0 ? (lucro / receita) * 100 : 0,
   };
 }
+
+/**
+ * Custo do material por peca a partir do filamento: gramas no tamanho
+ * original x fator da escala (cubo) x preco do grama. Devolve tambem as
+ * gramas na escala pra mostrar na tela. 0 se faltar algum dado.
+ */
+export function custoMaterial(gramas100: number, escalaPct: number, precoRolo: number, pesoRoloG: number) {
+  const escala = escalaPct > 0 ? escalaPct : 100;
+  const fator = (escala / 100) ** 3;
+  const gramas = (gramas100 || 0) * fator;
+  const custo = precoRolo > 0 && pesoRoloG > 0 ? (gramas / pesoRoloG) * precoRolo : 0;
+  return { fator, gramas, custo };
+}
