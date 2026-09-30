@@ -1,0 +1,70 @@
+// Banco de dados do Unlimited (PostgreSQL).
+//
+//   Configuracao  -> preco e peso do rolo, margem (uma linha so, id = 1)
+//   Calculo       -> cada calculo de filamento feito na calculadora
+//   Impresso      -> cada lote de pecas realmente impresso (custo x venda)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Configuracao {
+  id           Int      @id @default(1)
+  precoRolo    Float    @default(120)
+  pesoRoloG    Float    @default(1000)
+  margemPct    Float    @default(0)
+  atualizadoEm DateTime @updatedAt
+}
+
+model Calculo {
+  id             String   @id @default(cuid())
+  criadoEm       DateTime @default(now())
+  origem         String   @default("makerworld") // makerworld | manual
+  titulo         String
+  link           String   @default("")
+  idModelo       Int?
+  idPerfil       Int?
+  perfil         String   @default("")
+  placas         Int      @default(0)
+  segundos       Int      @default(0)
+  pecas          Int      @default(1)
+  escalaPct      Float    @default(100)
+  precoRolo      Float
+  pesoRoloG      Float
+  margemPct      Float    @default(0)
+  gramasPeca     Float
+  custoPeca      Float
+  gargalo        String   @default("")
+  rolosLote      Int      @default(0)
+  custoRolosLote Float    @default(0)
+  resultado      Json
+  outrosPerfis   Json     @default("[]")
+  relatorio      String   @default("")
+  impressos      Impresso[]
+
+  @@index([criadoEm])
+}
+
+model Impresso {
+  id           String   @id @default(cuid())
+  criadoEm     DateTime @default(now())
+  quando       DateTime @default(now())
+  modelo       String
+  link         String   @default("")
+  escalaPct    Float    @default(100)
+  quantidade   Int      @default(1)
+  custoPeca    Float    @default(0)
+  outrosPeca   Float    @default(0)
+  precoVenda   Float    @default(0)
+  segundosPeca Int      @default(0)
+  obs          String   @default("")
+  calculoId    String?
+  calculo      Calculo? @relation(fields: [calculoId], references: [id], onDelete: SetNull)
+
+  @@index([quando])
+}

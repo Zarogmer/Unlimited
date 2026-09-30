@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Unlimited 3D
 
-## Getting Started
+Sistema web (TypeScript) de controle da impressao 3D: calcula o filamento de
+um modelo do MakerWorld, guarda cada calculo, registra os lotes impressos com
+custo, venda e lucro, e mostra o painel com os totais. Feito pra rodar em
+nuvem e ser compartilhado entre os socios (senha unica).
 
-First, run the development server:
+Portado das features "Filamento 3D" e "Impressos" do Bot_Marketing (Python).
+
+## O que tem
+
+- **Calculadora de filamento** — cole o link do MakerWorld (ou informe os
+  gramas na mao). Soma os gramas de cada cor em cada placa do perfil de
+  impressao e responde: custo por peca, pecas por rolo, cor gargalo, rolos e
+  investimento pro lote, sobra por rolo, tempo de impressao. Aceita **escala**
+  (%) do slicer: o peso cai com o cubo do tamanho (60% = 21,6% do filamento).
+- **Calculos** — historico de tudo que foi calculado, com relatorio .txt.
+- **Impressos** — lotes realmente impressos: escala, quantidade, custo do
+  material + outros custos, preco de venda -> lucro por peca, do lote e
+  margem. Totais gerais no painel.
+- **Configuracoes** — preco e peso do rolo, margem sobre o slicer.
+- **Login** — senha compartilhada (`APP_SENHA`). Sem ela, nao pede login.
+
+## Stack
+
+Next.js 16 (App Router, Server Actions) · TypeScript · Tailwind 4 ·
+Prisma 6 · PostgreSQL.
+
+## Rodar local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# 1) Postgres (docker)
+docker run -d --name unlimited-postgres -e POSTGRES_USER=unlimited \
+  -e POSTGRES_PASSWORD=unlimited -e POSTGRES_DB=unlimited -p 5434:5432 postgres:16-alpine
+
+# 2) variaveis
+cp .env.example .env   # DATABASE_URL=postgresql://unlimited:unlimited@localhost:5434/unlimited?schema=public
+
+# 3) dependencias + banco + servidor
+npm install
+npx prisma migrate dev
+npm run dev            # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Deploy (Railway)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Servico **Postgres** no projeto.
+2. Servico do app apontando pra este repositorio (branch `main`). O build e
+   `npm run build`; o start roda `prisma migrate deploy && next start`, entao
+   as migracoes sao aplicadas sozinhas a cada deploy.
+3. Variaveis do app:
+   - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}`
+   - `APP_SENHA` = senha que voce e seu socio vao usar
+   - `APP_SEGREDO` = qualquer texto aleatorio
+4. Gerar o dominio publico. Healthcheck: `/api/health`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Estrutura
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+prisma/schema.prisma        modelos: Configuracao, Calculo, Impresso
+src/lib/filamento.ts        conta do filamento (porte do filamento_3d.py)
+src/lib/impressos.ts        contas de lucro (porte do impressos.py)
+src/lib/formato.ts          R$, gramas, horas, datas em pt-BR
+src/proxy.ts                porta de entrada (senha)
+src/app/                    paginas: painel, calculadora, calculos, impressos, configuracoes, entrar
+```
