@@ -27,6 +27,7 @@ function lerFormulario(formData: FormData) {
   const pesoRoloG = Math.max(0, num(formData.get("pesoRoloG")));
   // Com gramas informadas o custo do material sai da conta do filamento;
   // sem gramas vale o valor digitado direto.
+  const quantidade = Math.max(1, Math.trunc(num(formData.get("quantidade"), 1)));
   const custoPeca =
     gramas100 > 0 ? custoMaterial(gramas100, escalaPct, precoRolo, pesoRoloG).custo : num(formData.get("custoPeca"));
   return {
@@ -34,7 +35,8 @@ function lerFormulario(formData: FormData) {
     link: String(formData.get("link") ?? "").trim(),
     quando,
     escalaPct,
-    quantidade: Math.max(1, Math.trunc(num(formData.get("quantidade"), 1))),
+    quantidade,
+    perdas: Math.min(quantidade, Math.max(0, Math.trunc(num(formData.get("perdas"), 0)))),
     gramas100,
     precoRolo,
     pesoRoloG,

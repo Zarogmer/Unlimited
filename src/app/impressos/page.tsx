@@ -26,9 +26,13 @@ export default async function PaginaImpressos() {
       </Titulo>
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi rotulo="Pecas" valor={String(t.pecas)} detalhe={`${t.lotes} lote(s)`} />
+        <Kpi
+          rotulo="Pecas boas"
+          valor={String(t.boas)}
+          detalhe={`${t.pecas} impressas · ${t.perdas} perdida(s) · ${t.lotes} lote(s)`}
+        />
         <Kpi rotulo="Custo total" valor={reais(t.custoTotal)} detalhe="material + outros custos" />
-        <Kpi rotulo="Receita" valor={reais(t.receita)} detalhe="tudo que foi vendido" />
+        <Kpi rotulo="Receita" valor={reais(t.receita)} detalhe="so as pecas boas" />
         <Kpi rotulo="Lucro" valor={reais(t.lucro)} detalhe={`margem de ${pct(t.margemPct)}`} cor={t.lucro >= 0 ? "verde" : "vermelho"} />
       </div>
 
@@ -45,7 +49,7 @@ export default async function PaginaImpressos() {
                   <th>Quando</th>
                   <th>Modelo</th>
                   <th className="num">Escala</th>
-                  <th className="num">Qtd</th>
+                  <th className="num">Boas</th>
                   <th className="num">Custo/pc</th>
                   <th className="num">Venda/pc</th>
                   <th className="num">Custo total</th>
@@ -71,7 +75,10 @@ export default async function PaginaImpressos() {
                         </div>
                       </td>
                       <td className="num">{numero(i.escalaPct, 0)}%</td>
-                      <td className="num">{i.quantidade}</td>
+                      <td className="num whitespace-nowrap">
+                        {c.boas}
+                        {c.perdas > 0 && <span className="text-xs text-red"> +{c.perdas} perdida(s)</span>}
+                      </td>
                       <td className="num">{reais(c.custoUnitario)}</td>
                       <td className="num">{reais(i.precoVenda)}</td>
                       <td className="num">{reais(c.custoTotal)}</td>

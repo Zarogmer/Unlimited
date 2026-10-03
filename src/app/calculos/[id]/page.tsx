@@ -202,6 +202,7 @@ export default async function PaginaCalculo({ params }: { params: Promise<{ id: 
                 <li key={i.id}>
                   <Link href={`/impressos/${i.id}/editar`} className="hover:text-accent">
                     {dataHora(i.quando)} — {i.quantidade} peca(s) a {numero(i.escalaPct, 0)}%
+                    {i.perdas > 0 && ` (${i.perdas} perdida(s))`}
                   </Link>
                 </li>
               ))}

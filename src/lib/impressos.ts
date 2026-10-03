@@ -2,27 +2,35 @@
  * impressos.ts — Contas de lucro dos lotes IMPRESSOS (porte do impressos.py).
  *
  * Cada impresso e um lote de pecas de um modelo: em que escala (%) foi
- * impresso, quantas pecas sairam, quanto custou cada uma (o material que a
+ * impresso, quantas pecas sairam (e quantas se perderam), quanto custou cada uma (o material que a
  * calculadora achou, mais o que voce quiser somar: energia, embalagem,
  * pintura...) e por quanto cada peca foi vendida.
  *
  * As contas sao sempre refeitas na leitura, nunca gravadas:
+ *   boas          = quantidade - perdas (as que da pra vender)
  *   custoUnitario = custoPeca + outrosPeca
- *   custoTotal    = custoUnitario x quantidade
- *   receita       = precoVenda x quantidade
+ *   custoTotal    = custoUnitario x quantidade (a peca perdida tambem gastou)
+ *   receita       = precoVenda x boas
  *   lucro         = receita - custoTotal
+ *   custoPorBoa   = custoTotal / boas (o custo real de cada peca vendavel)
  *   margemPct     = lucro / receita (0 se nao vendeu)
  */
 
 export interface ImpressoBase {
   quantidade: number;
+  perdas?: number;
   custoPeca: number;
   outrosPeca: number;
   precoVenda: number;
 }
 
 export interface ContasImpresso {
+  impressas: number;
+  perdas: number;
+  boas: number;
+  aproveitamentoPct: number;
   custoUnitario: number;
+  custoPorBoa: number;
   custoTotal: number;
   receita: number;
   lucro: number;
@@ -32,16 +40,23 @@ export interface ContasImpresso {
 
 export function contas(i: ImpressoBase): ContasImpresso {
   const qtd = Math.max(0, Math.trunc(i.quantidade || 0));
+  const perdas = Math.min(qtd, Math.max(0, Math.trunc(i.perdas || 0)));
+  const boas = qtd - perdas;
   const custoUnitario = (i.custoPeca || 0) + (i.outrosPeca || 0);
   const custoTotal = custoUnitario * qtd;
-  const receita = (i.precoVenda || 0) * qtd;
+  const receita = (i.precoVenda || 0) * boas;
   const lucro = receita - custoTotal;
   return {
+    impressas: qtd,
+    perdas,
+    boas,
+    aproveitamentoPct: qtd > 0 ? (boas / qtd) * 100 : 0,
     custoUnitario,
+    custoPorBoa: boas > 0 ? custoTotal / boas : 0,
     custoTotal,
     receita,
     lucro,
-    lucroPeca: (i.precoVenda || 0) - custoUnitario,
+    lucroPeca: boas > 0 ? lucro / boas : 0,
     margemPct: receita > 0 ? (lucro / receita) * 100 : 0,
   };
 }
@@ -49,6 +64,8 @@ export function contas(i: ImpressoBase): ContasImpresso {
 export interface Totais {
   lotes: number;
   pecas: number;
+  perdas: number;
+  boas: number;
   custoTotal: number;
   receita: number;
   lucro: number;
@@ -58,11 +75,13 @@ export interface Totais {
 /** Soma de tudo: pecas, custo, receita, lucro e margem geral. */
 export function totais(itens: ImpressoBase[]): Totais {
   let pecas = 0;
+  let perdas = 0;
   let custoTotal = 0;
   let receita = 0;
   for (const i of itens) {
     const c = contas(i);
-    pecas += Math.max(0, Math.trunc(i.quantidade || 0));
+    pecas += c.impressas;
+    perdas += c.perdas;
     custoTotal += c.custoTotal;
     receita += c.receita;
   }
@@ -70,6 +89,8 @@ export function totais(itens: ImpressoBase[]): Totais {
   return {
     lotes: itens.length,
     pecas,
+    perdas,
+    boas: pecas - perdas,
     custoTotal,
     receita,
     lucro,

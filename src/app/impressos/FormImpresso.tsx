@@ -15,6 +15,7 @@ export interface ValoresImpresso {
   quando: string; // YYYY-MM-DD
   escalaPct: string;
   quantidade: string;
+  perdas: string;
   gramas100: string;
   precoRolo: string;
   pesoRoloG: string;
@@ -58,6 +59,7 @@ export function FormImpresso({
 
   const c = contas({
     quantidade: num(v.quantidade, 0),
+    perdas: num(v.perdas, 0),
     custoPeca,
     outrosPeca: num(v.outrosPeca),
     precoVenda: num(v.precoVenda),
@@ -146,8 +148,26 @@ export function FormImpresso({
             <Campo rotulo="Escala (%)" dica={`Tamanho no slicer. Fator no peso: ${numero(mat.fator, 4)}.`}>
               <input name="escalaPct" className="campo" value={v.escalaPct} onChange={muda("escalaPct")} inputMode="decimal" />
             </Campo>
-            <Campo rotulo="Quantidade de pecas">
+            <Campo rotulo="Pecas impressas" dica="Tudo que saiu da impressora, boas e ruins.">
               <input name="quantidade" type="number" min={1} className="campo" value={v.quantidade} onChange={muda("quantidade")} />
+            </Campo>
+            <Campo
+              rotulo="Pecas perdidas (falha ou defeito)"
+              dica={
+                c.impressas > 0
+                  ? `= ${c.boas} boa(s) pra vender · aproveitamento de ${pct(c.aproveitamentoPct)}`
+                  : "As que nao da pra vender."
+              }
+            >
+              <input
+                name="perdas"
+                type="number"
+                min={0}
+                max={Math.max(0, c.impressas)}
+                className="campo"
+                value={v.perdas}
+                onChange={muda("perdas")}
+              />
             </Campo>
             <Campo
               rotulo="Tempo por peca (segundos)"
@@ -207,18 +227,32 @@ export function FormImpresso({
         <Card titulo="Lucro do lote" className="lg:sticky lg:top-20">
           <div className={`text-3xl font-semibold tabular-nums ${c.lucro >= 0 ? "text-green" : "text-red"}`}>{reais(c.lucro)}</div>
           <div className="mt-1 text-sm text-muted">
-            {reais(c.lucroPeca)} por peca · margem {pct(c.margemPct)}
+            {reais(c.lucroPeca)} por peca boa · margem {pct(c.margemPct)}
           </div>
           <dl className="mt-4 grid grid-cols-2 gap-y-1 text-sm">
+            <dt className="text-muted">Pecas impressas</dt>
+            <dd className="num">{c.impressas}</dd>
+            <dt className="text-muted">Perdidas</dt>
+            <dd className={`num ${c.perdas > 0 ? "text-red" : ""}`}>{c.perdas}</dd>
+            <dt className="text-muted">Boas pra vender</dt>
+            <dd className="num">
+              {c.boas} ({pct(c.aproveitamentoPct)})
+            </dd>
             <dt className="text-muted">Material por peca</dt>
             <dd className="num">{reais(custoPeca)}</dd>
             <dt className="text-muted">Outros por peca</dt>
             <dd className="num">{reais(num(v.outrosPeca))}</dd>
             <dt className="text-muted">Custo unitario</dt>
             <dd className="num">{reais(c.custoUnitario)}</dd>
-            <dt className="text-muted">Custo total</dt>
+            <dt className="text-muted">Custo total ({c.impressas} impressas)</dt>
             <dd className="num">{reais(c.custoTotal)}</dd>
-            <dt className="text-muted">Receita</dt>
+            {c.perdas > 0 && (
+              <>
+                <dt className="text-muted">Custo real por peca boa</dt>
+                <dd className="num">{reais(c.custoPorBoa)}</dd>
+              </>
+            )}
+            <dt className="text-muted">Receita ({c.boas} boas)</dt>
             <dd className="num">{reais(c.receita)}</dd>
           </dl>
           <Erro mensagem={estado.erro} />

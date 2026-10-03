@@ -57,7 +57,8 @@ model Impresso {
   modelo       String
   link         String   @default("")
   escalaPct    Float    @default(100)
-  quantidade   Int      @default(1)
+  quantidade   Int      @default(1) // pecas impressas (boas + perdidas)
+  perdas       Int      @default(0) // pecas que falharam / sairam com defeito e nao da pra vender
   gramas100    Float    @default(0) // gramas de filamento por peca no tamanho original (100%)
   precoRolo    Float    @default(0) // R$ do rolo usado na conta (0 = custoPeca foi digitado)
   pesoRoloG    Float    @default(0)

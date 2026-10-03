@@ -34,9 +34,13 @@ export default async function Painel() {
       </Titulo>
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi rotulo="Pecas impressas" valor={String(t.pecas)} detalhe={`${t.lotes} lote(s)`} />
+        <Kpi
+          rotulo="Pecas boas"
+          valor={String(t.boas)}
+          detalhe={`${t.pecas} impressas · ${t.perdas} perdida(s) · ${t.lotes} lote(s)`}
+        />
         <Kpi rotulo="Custo total" valor={reais(t.custoTotal)} detalhe="material + outros custos" />
-        <Kpi rotulo="Receita" valor={reais(t.receita)} detalhe="tudo que foi vendido" />
+        <Kpi rotulo="Receita" valor={reais(t.receita)} detalhe="so as pecas boas" />
         <Kpi
           rotulo="Lucro"
           valor={reais(t.lucro)}
@@ -54,7 +58,7 @@ export default async function Painel() {
               <thead>
                 <tr>
                   <th>Modelo</th>
-                  <th className="num">Qtd</th>
+                  <th className="num">Boas</th>
                   <th className="num">Lucro</th>
                 </tr>
               </thead>
@@ -71,7 +75,10 @@ export default async function Painel() {
                           {dataHora(i.quando)} · {numero(i.escalaPct, 0)}%
                         </div>
                       </td>
-                      <td className="num">{i.quantidade}</td>
+                      <td className="num whitespace-nowrap">
+                        {c.boas}
+                        {c.perdas > 0 && <span className="text-xs text-red"> +{c.perdas} perdida(s)</span>}
+                      </td>
                       <td className={`num ${c.lucro >= 0 ? "text-green" : "text-red"}`}>{reais(c.lucro)}</td>
                     </tr>
                   );

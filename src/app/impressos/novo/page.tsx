@@ -33,6 +33,7 @@ export default async function PaginaNovoImpresso({
     quando: hoje(),
     escalaPct: "100",
     quantidade: "1",
+    perdas: "0",
     gramas100: "",
     precoRolo: paraInput(config.precoRolo),
     pesoRoloG: paraInput(config.pesoRoloG, 0),
