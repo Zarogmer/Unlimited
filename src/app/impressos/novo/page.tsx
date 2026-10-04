@@ -76,7 +76,7 @@ export default async function PaginaNovoImpresso({
       ) : (
         <p className="mb-4 text-sm text-muted">
           Cole o link do MakerWorld e clique em &quot;Puxar filamento&quot;: o custo do material sai dos gramas do
-          modelo, da escala e do preco do rolo. Ou escolha um calculo salvo.
+          modelo, da escala e do preco do rolo.
         </p>
       )}
       <FormImpresso valores={valores} titulo="Lote impresso" calculos={calculos} />

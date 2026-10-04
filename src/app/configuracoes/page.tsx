@@ -11,8 +11,8 @@ export default async function PaginaConfiguracoes() {
     <>
       <Titulo>Configuracoes</Titulo>
       <p className="mb-5 max-w-2xl text-sm text-muted">
-        Valores padrao da calculadora. Todo rolo e tratado como tendo este peso e custando este valor
-        (da pra mudar na hora, em cada calculo).
+        Valores padrao do &quot;Registrar impresso&quot;. Todo rolo e tratado como tendo este peso e custando este valor
+        (da pra mudar na hora, em cada lote).
       </p>
       <FormConfig config={config} />
     </>

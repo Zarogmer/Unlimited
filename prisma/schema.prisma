@@ -3,6 +3,8 @@
 //   Configuracao  -> preco e peso do rolo, margem (uma linha so, id = 1)
 //   Calculo       -> cada calculo de filamento feito na calculadora
 //   Impresso      -> cada lote de pecas realmente impresso (custo x venda)
+//   Local         -> lugares onde as pecas boas ficam
+//   Movimento     -> pecas de um lote levadas de um local pra outro
 
 generator client {
   provider = "prisma-client-js"
@@ -69,6 +71,36 @@ model Impresso {
   obs          String   @default("")
   calculoId    String?
   calculo      Calculo? @relation(fields: [calculoId], references: [id], onDelete: SetNull)
+  movimentos   Movimento[]
 
+  @@index([quando])
+}
+
+// Lugar onde as pecas boas ficam (prateleira, loja, feira, consignado...).
+model Local {
+  id       String      @id @default(cuid())
+  criadoEm DateTime    @default(now())
+  nome     String
+  obs      String      @default("")
+  entradas Movimento[] @relation("para")
+  saidas   Movimento[] @relation("de")
+}
+
+// Movimentacao de pecas boas de um lote. Local vazio (null) = "sem local":
+// a peca acabou de sair da impressora e ainda nao foi levada pra lugar nenhum.
+// O saldo de cada local e sempre recalculado somando os movimentos.
+model Movimento {
+  id          String   @id @default(cuid())
+  quando      DateTime @default(now())
+  quantidade  Int
+  obs         String   @default("")
+  impressoId  String
+  impresso    Impresso @relation(fields: [impressoId], references: [id], onDelete: Cascade)
+  deLocalId   String?
+  de          Local?   @relation("de", fields: [deLocalId], references: [id], onDelete: Restrict)
+  paraLocalId String?
+  para        Local?   @relation("para", fields: [paraLocalId], references: [id], onDelete: Restrict)
+
+  @@index([impressoId])
   @@index([quando])
 }

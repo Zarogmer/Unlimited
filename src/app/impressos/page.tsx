@@ -18,7 +18,7 @@ export default async function PaginaImpressos() {
       <Titulo
         acoes={
           <Link href="/impressos/novo" className="botao botao-primario">
-            Adicionar impresso
+            Registrar impresso
           </Link>
         }
       >
@@ -39,7 +39,7 @@ export default async function PaginaImpressos() {
       <Card>
         {impressos.length === 0 ? (
           <Vazio>
-            Nada registrado ainda. Calcule na calculadora e clique em &quot;Registrar como impresso&quot;, ou adicione na mao.
+            Nada registrado ainda. Clique em &quot;Registrar impresso&quot; e cole o link do MakerWorld.
           </Vazio>
         ) : (
           <div className="overflow-x-auto">
@@ -87,6 +87,11 @@ export default async function PaginaImpressos() {
                       <td className="num">{pct(c.margemPct)}</td>
                       <td className="whitespace-nowrap">
                         <div className="flex items-center justify-end gap-2">
+                          {c.boas > 0 && (
+                            <Link href={`/locais?impresso=${i.id}`} className="text-sm text-muted hover:text-text">
+                              mover
+                            </Link>
+                          )}
                           <Link href={`/impressos/${i.id}/editar`} className="text-sm text-muted hover:text-text">
                             editar
                           </Link>

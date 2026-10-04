@@ -2,18 +2,21 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { lerConfig } from "@/lib/config";
 import { contas, totais } from "@/lib/impressos";
-import { dataHora, gramas, numero, pct, reais } from "@/lib/formato";
+import { estoque } from "@/lib/locais";
+import { dataHora, numero, pct, reais } from "@/lib/formato";
 import { Card, Kpi, Titulo, Vazio } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
 export default async function Painel() {
-  const [impressos, calculos, config] = await Promise.all([
+  const [impressos, locais, movimentos, config] = await Promise.all([
     prisma.impresso.findMany({ orderBy: { quando: "desc" } }),
-    prisma.calculo.findMany({ orderBy: { criadoEm: "desc" }, take: 6 }),
+    prisma.local.findMany({ orderBy: { nome: "asc" } }),
+    prisma.movimento.findMany(),
     lerConfig(),
   ]);
   const t = totais(impressos);
+  const e = estoque(impressos, movimentos);
   const ultimos = impressos.slice(0, 6);
 
   return (
@@ -21,11 +24,11 @@ export default async function Painel() {
       <Titulo
         acoes={
           <>
-            <Link href="/calculadora" className="botao botao-primario">
-              Calcular filamento
-            </Link>
-            <Link href="/impressos/novo" className="botao botao-secundario">
+            <Link href="/impressos/novo" className="botao botao-primario">
               Registrar impresso
+            </Link>
+            <Link href="/locais" className="botao botao-secundario">
+              Movimentar pecas
             </Link>
           </>
         }
@@ -52,7 +55,7 @@ export default async function Painel() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card titulo="Ultimos impressos">
           {ultimos.length === 0 ? (
-            <Vazio>Nada registrado ainda. Calcule na calculadora e clique em &quot;Registrar como impresso&quot;.</Vazio>
+            <Vazio>Nada registrado ainda. Clique em &quot;Registrar impresso&quot; e cole o link do MakerWorld.</Vazio>
           ) : (
             <table className="tabela">
               <thead>
@@ -93,39 +96,42 @@ export default async function Painel() {
           </div>
         </Card>
 
-        <Card titulo="Ultimos calculos">
-          {calculos.length === 0 ? (
-            <Vazio>Nenhum calculo ainda. Cole um link do MakerWorld na calculadora.</Vazio>
+        <Card titulo="Onde estao as pecas">
+          {locais.length === 0 ? (
+            <Vazio>Nenhum local cadastrado ainda. Cadastre em &quot;Locais&quot; pra controlar onde cada peca esta.</Vazio>
           ) : (
             <table className="tabela">
               <thead>
                 <tr>
-                  <th>Modelo</th>
-                  <th className="num">Escala</th>
-                  <th className="num">Custo/peca</th>
+                  <th>Local</th>
+                  <th className="num">Pecas</th>
                 </tr>
               </thead>
               <tbody>
-                {calculos.map((c) => (
-                  <tr key={c.id}>
-                    <td>
-                      <Link href={`/calculos/${c.id}`} className="hover:text-accent">
-                        {c.titulo}
-                      </Link>
-                      <div className="text-xs text-muted">
-                        {dataHora(c.criadoEm)} · {c.pecas} peca(s) · {gramas(c.gramasPeca)}
-                      </div>
-                    </td>
-                    <td className="num">{numero(c.escalaPct, 0)}%</td>
-                    <td className="num">{reais(c.custoPeca)}</td>
-                  </tr>
-                ))}
+                {locais.map((l) => {
+                  const la = e.itens.filter((i) => i.porLocal[l.id] > 0);
+                  return (
+                    <tr key={l.id}>
+                      <td>
+                        {l.nome}
+                        <div className="text-xs text-muted">
+                          {la.map((i) => `${i.porLocal[l.id]}× ${i.modelo}`).join(" · ") || "vazio"}
+                        </div>
+                      </td>
+                      <td className="num">{e.totalPorLocal[l.id] ?? 0}</td>
+                    </tr>
+                  );
+                })}
+                <tr>
+                  <td className="text-muted">Sem local</td>
+                  <td className={`num ${e.semLocal > 0 ? "text-accent" : "text-muted"}`}>{e.semLocal}</td>
+                </tr>
               </tbody>
             </table>
           )}
           <div className="mt-3 text-right">
-            <Link href="/calculos" className="text-sm text-muted hover:text-text">
-              Ver todos →
+            <Link href="/locais" className="text-sm text-muted hover:text-text">
+              Ver locais →
             </Link>
           </div>
         </Card>

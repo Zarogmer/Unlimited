@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { lerConfig } from "@/lib/config";
 import { num } from "@/lib/formato";
 import { custoMaterial } from "@/lib/impressos";
+import { alocadas } from "@/lib/locais";
 import { calcularPorLink, ErroFilamento } from "@/lib/filamento";
 
 export interface EstadoImpresso {
@@ -53,6 +54,7 @@ function revalidar() {
   revalidatePath("/");
   revalidatePath("/impressos");
   revalidatePath("/calculos");
+  revalidatePath("/locais");
 }
 
 export async function salvarImpresso(_prev: EstadoImpresso, formData: FormData): Promise<EstadoImpresso> {
@@ -68,6 +70,10 @@ export async function salvarImpresso(_prev: EstadoImpresso, formData: FormData):
   if (id) {
     const existe = await prisma.impresso.findUnique({ where: { id }, select: { id: true } });
     if (!existe) return { erro: "Esse impresso nao existe mais." };
+    const emLocais = alocadas(await prisma.movimento.findMany({ where: { impressoId: id } }));
+    if (dados.quantidade - dados.perdas < emLocais) {
+      return { erro: `Ja tem ${emLocais} peca(s) desse lote em locais. Tire de la antes de diminuir as pecas boas.` };
+    }
     await prisma.impresso.update({ where: { id }, data: dados });
   } else {
     await prisma.impresso.create({ data: dados });

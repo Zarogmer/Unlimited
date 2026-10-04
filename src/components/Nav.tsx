@@ -5,9 +5,9 @@ import { sair } from "@/app/entrar/actions";
 
 const LINKS = [
   { href: "/", rotulo: "Painel" },
-  { href: "/calculadora", rotulo: "Calculadora" },
-  { href: "/calculos", rotulo: "Calculos" },
+  { href: "/impressos/novo", rotulo: "Registrar impresso" },
   { href: "/impressos", rotulo: "Impressos" },
+  { href: "/locais", rotulo: "Locais" },
   { href: "/configuracoes", rotulo: "Configuracoes" },
 ];
 
