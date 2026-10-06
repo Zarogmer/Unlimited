@@ -43,6 +43,7 @@ export default async function PaginaEditarImpresso({ params }: { params: Promise
           escalaPct: paraInput(i.escalaPct, 2),
           quantidade: String(i.quantidade),
           perdas: String(i.perdas),
+          pecasPorPlaca: String(i.pecasPorPlaca),
           gramas100: i.gramas100 > 0 ? paraInput(i.gramas100, 1) : "",
           precoRolo: paraInput(i.precoRolo > 0 ? i.precoRolo : config.precoRolo),
           pesoRoloG: paraInput(i.pesoRoloG > 0 ? i.pesoRoloG : config.pesoRoloG, 0),

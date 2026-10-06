@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { lerConfig } from "@/lib/config";
 import { num } from "@/lib/formato";
-import { custoMaterial } from "@/lib/impressos";
+import { custoMaterial, pecasPorPlacaValida } from "@/lib/impressos";
 import { alocadas } from "@/lib/locais";
 import { calcularPorLink, ErroFilamento } from "@/lib/filamento";
 
@@ -26,17 +26,22 @@ function lerFormulario(formData: FormData) {
   const gramas100 = Math.max(0, num(formData.get("gramas100")));
   const precoRolo = Math.max(0, num(formData.get("precoRolo")));
   const pesoRoloG = Math.max(0, num(formData.get("pesoRoloG")));
-  // Com gramas informadas o custo do material sai da conta do filamento;
-  // sem gramas vale o valor digitado direto.
+  const pecasPorPlaca = pecasPorPlacaValida(formData.get("pecasPorPlaca"));
+  // Com gramas informadas o custo do material sai da conta do filamento
+  // (gramas da placa / pecas por placa = gramas da peca); sem gramas vale o
+  // valor digitado direto.
   const quantidade = Math.max(1, Math.trunc(num(formData.get("quantidade"), 1)));
   const custoPeca =
-    gramas100 > 0 ? custoMaterial(gramas100, escalaPct, precoRolo, pesoRoloG).custo : num(formData.get("custoPeca"));
+    gramas100 > 0
+      ? custoMaterial(gramas100 / pecasPorPlaca, escalaPct, precoRolo, pesoRoloG).custo
+      : num(formData.get("custoPeca"));
   return {
     modelo: modelo || "(sem nome)",
     link: String(formData.get("link") ?? "").trim(),
     quando,
     escalaPct,
     quantidade,
+    pecasPorPlaca,
     perdas: Math.min(quantidade, Math.max(0, Math.trunc(num(formData.get("perdas"), 0)))),
     gramas100,
     precoRolo,
@@ -94,6 +99,7 @@ export interface FilamentoPuxado {
   erro?: string;
   titulo?: string;
   perfil?: string;
+  placas?: number;
   gramas100?: number;
   segundos?: number;
   cores?: Array<{ nome: string; hex: string; gramas100: number }>;
@@ -117,6 +123,7 @@ export async function puxarFilamento(link: string): Promise<FilamentoPuxado> {
       ok: true,
       titulo: info.titulo,
       perfil: info.perfil,
+      placas: info.placas,
       gramas100: res.gramasPeca100,
       segundos: info.segundos,
       cores: res.cores.map((c) => ({ nome: c.nome, hex: c.hex, gramas100: c.gramas100 })),

@@ -24,54 +24,55 @@ model Configuracao {
 }
 
 model Calculo {
-  id             String   @id @default(cuid())
-  criadoEm       DateTime @default(now())
-  origem         String   @default("makerworld") // makerworld | manual
+  id             String     @id @default(cuid())
+  criadoEm       DateTime   @default(now())
+  origem         String     @default("makerworld") // makerworld | manual
   titulo         String
-  link           String   @default("")
+  link           String     @default("")
   idModelo       Int?
   idPerfil       Int?
-  perfil         String   @default("")
-  placas         Int      @default(0)
-  segundos       Int      @default(0)
-  pecas          Int      @default(1)
-  escalaPct      Float    @default(100)
+  perfil         String     @default("")
+  placas         Int        @default(0)
+  segundos       Int        @default(0)
+  pecas          Int        @default(1)
+  escalaPct      Float      @default(100)
   precoRolo      Float
   pesoRoloG      Float
-  margemPct      Float    @default(0)
+  margemPct      Float      @default(0)
   gramasPeca     Float
   custoPeca      Float
-  gargalo        String   @default("")
-  rolosLote      Int      @default(0)
-  custoRolosLote Float    @default(0)
+  gargalo        String     @default("")
+  rolosLote      Int        @default(0)
+  custoRolosLote Float      @default(0)
   resultado      Json
-  outrosPerfis   Json     @default("[]")
-  relatorio      String   @default("")
+  outrosPerfis   Json       @default("[]")
+  relatorio      String     @default("")
   impressos      Impresso[]
 
   @@index([criadoEm])
 }
 
 model Impresso {
-  id           String   @id @default(cuid())
-  criadoEm     DateTime @default(now())
-  quando       DateTime @default(now())
-  modelo       String
-  link         String   @default("")
-  escalaPct    Float    @default(100)
-  quantidade   Int      @default(1) // pecas impressas (boas + perdidas)
-  perdas       Int      @default(0) // pecas que falharam / sairam com defeito e nao da pra vender
-  gramas100    Float    @default(0) // gramas de filamento por peca no tamanho original (100%)
-  precoRolo    Float    @default(0) // R$ do rolo usado na conta (0 = custoPeca foi digitado)
-  pesoRoloG    Float    @default(0)
-  custoPeca    Float    @default(0) // custo do material por peca (calculado ou digitado)
-  outrosPeca   Float    @default(0)
-  precoVenda   Float    @default(0)
-  segundosPeca Int      @default(0)
-  obs          String   @default("")
-  calculoId    String?
-  calculo      Calculo? @relation(fields: [calculoId], references: [id], onDelete: SetNull)
-  movimentos   Movimento[]
+  id            String      @id @default(cuid())
+  criadoEm      DateTime    @default(now())
+  quando        DateTime    @default(now())
+  modelo        String
+  link          String      @default("")
+  escalaPct     Float       @default(100)
+  quantidade    Int         @default(1) // pecas impressas (boas + perdidas)
+  perdas        Int         @default(0) // pecas que falharam / sairam com defeito e nao da pra vender
+  pecasPorPlaca Int         @default(1) // 1 = gramas e tempo sao de UMA peca; N = sao da placa inteira com N pecas
+  gramas100     Float       @default(0) // gramas de filamento no tamanho original (100%), por peca ou por placa (ver pecasPorPlaca)
+  precoRolo     Float       @default(0) // R$ do rolo usado na conta (0 = custoPeca foi digitado)
+  pesoRoloG     Float       @default(0)
+  custoPeca     Float       @default(0) // custo do material por peca (calculado ou digitado)
+  outrosPeca    Float       @default(0)
+  precoVenda    Float       @default(0)
+  segundosPeca  Int         @default(0) // tempo de impressao, por peca ou por placa (ver pecasPorPlaca)
+  obs           String      @default("")
+  calculoId     String?
+  calculo       Calculo?    @relation(fields: [calculoId], references: [id], onDelete: SetNull)
+  movimentos    Movimento[]
 
   @@index([quando])
 }

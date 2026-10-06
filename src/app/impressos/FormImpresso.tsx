@@ -4,7 +4,7 @@ import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { puxarFilamento, salvarImpresso, type EstadoImpresso, type FilamentoPuxado } from "./actions";
 import { Amostra, Campo, Card, Erro } from "@/components/ui";
-import { contas, custoMaterial } from "@/lib/impressos";
+import { contas, custoMaterial, pecasPorPlacaValida } from "@/lib/impressos";
 import { gramas as fmtGramas, horas, num, numero, paraInput, pct, reais } from "@/lib/formato";
 
 export interface ValoresImpresso {
@@ -16,6 +16,7 @@ export interface ValoresImpresso {
   escalaPct: string;
   quantidade: string;
   perdas: string;
+  pecasPorPlaca: string; // "1" = gramas e tempo por peca; N = da placa inteira com N pecas
   gramas100: string;
   precoRolo: string;
   pesoRoloG: string;
@@ -47,14 +48,19 @@ export function FormImpresso({
   const [v, setV] = useState(valores);
   const [puxando, iniciarPuxar] = useTransition();
   const [puxado, setPuxado] = useState<FilamentoPuxado | null>(null);
+  const [porPlaca, setPorPlaca] = useState(pecasPorPlacaValida(valores.pecasPorPlaca) > 1);
 
   const muda = (campo: keyof ValoresImpresso) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setV({ ...v, [campo]: e.target.value });
 
+  // Por placa: gramas e tempo digitados sao da placa inteira; cada peca leva 1/N.
+  const porPlacaN = porPlaca ? pecasPorPlacaValida(v.pecasPorPlaca) : 1;
+
   // Custo do material: pela conta do filamento quando tem gramas, senao o digitado.
   const gramas100 = num(v.gramas100);
+  const gramasPeca100 = gramas100 / porPlacaN;
   const escala = num(v.escalaPct, 100) || 100;
-  const mat = custoMaterial(gramas100, escala, num(v.precoRolo), num(v.pesoRoloG));
+  const mat = custoMaterial(gramasPeca100, escala, num(v.precoRolo), num(v.pesoRoloG));
   const custoPeca = gramas100 > 0 ? mat.custo : num(v.custoPeca);
 
   const c = contas({
@@ -65,6 +71,8 @@ export function FormImpresso({
     precoVenda: num(v.precoVenda),
   });
   const seg = Math.trunc(num(v.segundosPeca, 0));
+  const placasLote = Math.ceil(c.impressas / porPlacaN);
+  const segLote = porPlaca ? seg * placasLote : seg * c.impressas;
 
   function puxar() {
     if (!v.link.trim()) {
@@ -89,6 +97,7 @@ export function FormImpresso({
     <form action={acao} className="grid gap-4 lg:grid-cols-[2fr_1fr]">
       {v.id && <input type="hidden" name="id" value={v.id} />}
       {v.calculoId && <input type="hidden" name="calculoId" value={v.calculoId} />}
+      <input type="hidden" name="pecasPorPlaca" value={porPlacaN} />
       <div className="space-y-4">
         {calculos.length > 0 && !v.id && (
           <Card titulo="Comecar por um calculo salvo">
@@ -130,8 +139,9 @@ export function FormImpresso({
             {puxado?.ok && (
               <div className="rounded-md border border-border bg-bg px-3 py-2 text-sm sm:col-span-2">
                 <div className="text-muted">
-                  {puxado.titulo} · {puxado.perfil} · {fmtGramas(puxado.gramas100 ?? 0)} a 100%
-                  {puxado.segundos ? ` · ~${horas(puxado.segundos)} por peca` : ""}
+                  {puxado.titulo} · {puxado.perfil}
+                  {puxado.placas ? ` · ${puxado.placas} placa(s)` : ""} · {fmtGramas(puxado.gramas100 ?? 0)} a 100%
+                  {puxado.segundos ? ` · ~${horas(puxado.segundos)}` : ""} (perfil inteiro)
                 </div>
                 <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
                   {puxado.cores?.map((cor) => (
@@ -140,8 +150,59 @@ export function FormImpresso({
                     </span>
                   ))}
                 </div>
+                <div className="mt-2 text-xs text-muted">
+                  {!porPlaca
+                    ? 'O MakerWorld informa a placa inteira. Se ela imprime varias pecas de uma vez (chaveiros, miniaturas), escolha "Por placa" abaixo e diga quantas.'
+                    : (puxado.placas ?? 0) > 1
+                      ? `Esse perfil tem ${puxado.placas} placas: os gramas e o tempo sao a soma delas. Em "Pecas por placa" conte as pecas de todas.`
+                      : "Os gramas e o tempo sao da placa: cada peca leva a parte dela."}
+                </div>
               </div>
             )}
+            <div className="sm:col-span-2">
+              <span className="mb-1 block text-sm font-medium">Gramas e tempo informados</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPorPlaca(false)}
+                  className={`botao ${!porPlaca ? "botao-primario" : "botao-secundario"}`}
+                >
+                  Por peca
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPorPlaca(true);
+                    if (pecasPorPlacaValida(v.pecasPorPlaca) < 2) setV((atual) => ({ ...atual, pecasPorPlaca: "" }));
+                  }}
+                  className={`botao ${porPlaca ? "botao-primario" : "botao-secundario"}`}
+                >
+                  Por placa
+                </button>
+                {porPlaca && (
+                  <label className="flex items-center gap-2 whitespace-nowrap text-sm">
+                    <input
+                      type="number"
+                      min={1}
+                      className="campo w-24"
+                      value={v.pecasPorPlaca}
+                      onChange={muda("pecasPorPlaca")}
+                      placeholder="9"
+                      required
+                    />
+                    pecas por placa
+                  </label>
+                )}
+              </div>
+              <span className="mt-1 block text-xs text-muted">
+                {porPlaca && porPlacaN < 2
+                  ? "Diga quantas pecas saem em cada placa."
+                  : porPlaca
+                  ? `Gramas e tempo da placa inteira, divididos por ${porPlacaN} peca(s).` +
+                    (c.impressas > 0 ? ` ${c.impressas} peca(s) = ${placasLote} placa(s).` : "")
+                  : "Gramas e tempo de uma peca so. Placa cheia de pecas iguais? Use \"Por placa\"."}
+              </span>
+            </div>
             <Campo rotulo="Quando">
               <input name="quando" type="date" className="campo" value={v.quando} onChange={muda("quando")} />
             </Campo>
@@ -170,8 +231,14 @@ export function FormImpresso({
               />
             </Campo>
             <Campo
-              rotulo="Tempo por peca (segundos)"
-              dica={seg > 0 ? `= ${horas(seg)} por peca, ${horas(seg * num(v.quantidade, 0))} no lote` : "Opcional."}
+              rotulo={porPlaca ? "Tempo da placa (segundos)" : "Tempo por peca (segundos)"}
+              dica={
+                seg <= 0
+                  ? "Opcional."
+                  : porPlaca
+                    ? `= ${horas(seg)} por placa, ~${horas(seg / porPlacaN)} por peca, ${horas(segLote)} no lote`
+                    : `= ${horas(seg)} por peca, ${horas(segLote)} no lote`
+              }
             >
               <input name="segundosPeca" className="campo" value={v.segundosPeca} onChange={muda("segundosPeca")} inputMode="numeric" />
             </Campo>
@@ -180,7 +247,14 @@ export function FormImpresso({
 
         <Card titulo="Filamento (custo do material)">
           <div className="grid gap-4 sm:grid-cols-3">
-            <Campo rotulo="Gramas por peca a 100%" dica="Soma de todas as cores no tamanho original (o MakerWorld informa).">
+            <Campo
+              rotulo={porPlaca ? "Gramas da placa a 100%" : "Gramas por peca a 100%"}
+              dica={
+                porPlaca
+                  ? "Soma de todas as cores da placa inteira no tamanho original (o MakerWorld informa)."
+                  : "Soma de todas as cores no tamanho original."
+              }
+            >
               <input name="gramas100" className="campo" value={v.gramas100} onChange={muda("gramas100")} inputMode="decimal" />
             </Campo>
             <Campo rotulo="Preco do rolo (R$)">
@@ -196,7 +270,8 @@ export function FormImpresso({
                 <div className="text-xs uppercase tracking-wide text-muted">Custo do material por peca</div>
                 <div className="text-xl font-semibold text-accent">{reais(mat.custo)}</div>
                 <div className="text-xs text-muted">
-                  {numero(gramas100, 1)} g × {numero(mat.fator, 4)} = {fmtGramas(mat.gramas)} na escala de {numero(escala, 0)}%
+                  {porPlaca && <>{numero(gramas100, 1)} g ÷ {porPlacaN} pecas = </>}
+                  {numero(gramasPeca100, 1)} g × {numero(mat.fator, 4)} = {fmtGramas(mat.gramas)} na escala de {numero(escala, 0)}%
                   {num(v.pesoRoloG) > 0 && ` · R$ ${numero(num(v.precoRolo) / num(v.pesoRoloG), 3)} por grama`}
                 </div>
               </div>

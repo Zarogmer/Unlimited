@@ -99,6 +99,15 @@ export function totais(itens: ImpressoBase[]): Totais {
 }
 
 /**
+ * Pecas por placa: inteiro >= 1. Com 1, os gramas e o tempo informados sao
+ * de uma peca; com N, sao da placa inteira e cada peca leva 1/N.
+ */
+export function pecasPorPlacaValida(n: unknown): number {
+  const v = Math.trunc(Number(n));
+  return Number.isFinite(v) && v >= 1 ? v : 1;
+}
+
+/**
  * Custo do material por peca a partir do filamento: gramas no tamanho
  * original x fator da escala (cubo) x preco do grama. Devolve tambem as
  * gramas na escala pra mostrar na tela. 0 se faltar algum dado.

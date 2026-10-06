@@ -70,7 +70,7 @@ export default async function PaginaImpressos() {
                           {i.modelo}
                         </Link>
                         <div className="text-xs text-muted">
-                          {i.segundosPeca > 0 && <>{horas(i.segundosPeca)}/peca · </>}
+                          {i.segundosPeca > 0 && <>{horas(i.segundosPeca / i.pecasPorPlaca)}/peca · </>}
                           {i.obs}
                         </div>
                       </td>
