@@ -5,6 +5,8 @@
 //   Impresso      -> cada lote de pecas realmente impresso (custo x venda)
 //   Local         -> lugares onde as pecas boas ficam
 //   Movimento     -> pecas de um lote levadas de um local pra outro
+//   Kit           -> produto montado com pecas de varios lotes (ex.: suporte + chaveiros)
+//   KitItem       -> pecas de um lote que foram pra dentro de um kit
 
 generator client {
   provider = "prisma-client-js"
@@ -73,6 +75,7 @@ model Impresso {
   calculoId     String?
   calculo       Calculo?    @relation(fields: [calculoId], references: [id], onDelete: SetNull)
   movimentos    Movimento[]
+  kitItens      KitItem[]
 
   @@index([quando])
 }
@@ -85,6 +88,7 @@ model Local {
   obs      String      @default("")
   entradas Movimento[] @relation("para")
   saidas   Movimento[] @relation("de")
+  kitItens KitItem[]
 }
 
 // Movimentacao de pecas boas de um lote. Local vazio (null) = "sem local":
@@ -104,4 +108,34 @@ model Movimento {
 
   @@index([impressoId])
   @@index([quando])
+}
+
+// Produto montado com pecas boas de varios lotes (ex.: um suporte com 6
+// chaveiros). As pecas que entram no kit saem do estoque; o que sobra do
+// lote continua onde estava.
+model Kit {
+  id          String    @id @default(cuid())
+  criadoEm    DateTime  @default(now())
+  nome        String
+  outrosCusto Float     @default(0) // argolas, embalagem... (R$ do kit inteiro)
+  precoVenda  Float     @default(0)
+  obs         String    @default("")
+  itens       KitItem[]
+}
+
+// Pecas de um lote dentro de um kit. deLocalId diz de onde elas sairam
+// (null = estavam "sem local"); um lote pode aparecer mais de uma vez no
+// mesmo kit se as pecas vieram de lugares diferentes.
+model KitItem {
+  id         String   @id @default(cuid())
+  quantidade Int
+  kitId      String
+  kit        Kit      @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  impressoId String
+  impresso   Impresso @relation(fields: [impressoId], references: [id], onDelete: Cascade)
+  deLocalId  String?
+  de         Local?   @relation(fields: [deLocalId], references: [id], onDelete: Restrict)
+
+  @@index([kitId])
+  @@index([impressoId])
 }

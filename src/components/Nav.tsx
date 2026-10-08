@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/impressos/novo", rotulo: "Registrar impresso" },
   { href: "/impressos", rotulo: "Impressos" },
   { href: "/locais", rotulo: "Locais" },
+  { href: "/kits", rotulo: "Kits" },
   { href: "/configuracoes", rotulo: "Configuracoes" },
 ];
 

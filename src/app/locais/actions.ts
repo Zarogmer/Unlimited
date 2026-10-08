@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { num } from "@/lib/formato";
 import { contas } from "@/lib/impressos";
-import { saldosDoLote } from "@/lib/locais";
+import { posicaoDoLote } from "@/lib/locais";
 
 export interface EstadoLocal {
   erro?: string;
@@ -18,6 +18,7 @@ function revalidar() {
   revalidatePath("/");
   revalidatePath("/locais");
   revalidatePath("/impressos");
+  revalidatePath("/kits");
 }
 
 export async function salvarLocal(_prev: EstadoLocal, formData: FormData): Promise<EstadoLocal> {
@@ -45,8 +46,11 @@ export async function salvarLocal(_prev: EstadoLocal, formData: FormData): Promi
 export async function apagarLocal(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  const usado = await prisma.movimento.count({ where: { OR: [{ deLocalId: id }, { paraLocalId: id }] } });
-  if (usado === 0) await prisma.local.delete({ where: { id } }).catch(() => null);
+  const [movs, kits] = await Promise.all([
+    prisma.movimento.count({ where: { OR: [{ deLocalId: id }, { paraLocalId: id }] } }),
+    prisma.kitItem.count({ where: { deLocalId: id } }),
+  ]);
+  if (movs + kits === 0) await prisma.local.delete({ where: { id } }).catch(() => null);
   revalidar();
 }
 
@@ -67,16 +71,18 @@ export async function moverPecas(_prev: EstadoLocal, formData: FormData): Promis
 
   try {
     await prisma.$transaction(async (tx) => {
-      const impresso = await tx.impresso.findUnique({ where: { id: impressoId }, include: { movimentos: true } });
+      const impresso = await tx.impresso.findUnique({
+        where: { id: impressoId },
+        include: { movimentos: true, kitItens: true },
+      });
       if (!impresso) throw new Error("Esse lote nao existe mais.");
       for (const localId of [deLocalId, paraLocalId]) {
         if (localId && !(await tx.local.findUnique({ where: { id: localId }, select: { id: true } }))) {
           throw new Error("Esse local nao existe mais.");
         }
       }
-      const saldos = saldosDoLote(impresso.movimentos);
-      const emLocais = Object.values(saldos).reduce((a, b) => a + b, 0);
-      const disponivel = deLocalId ? (saldos[deLocalId] ?? 0) : contas(impresso).boas - emLocais;
+      const p = posicaoDoLote(contas(impresso).boas, impresso.movimentos, impresso.kitItens);
+      const disponivel = deLocalId ? (p.porLocal[deLocalId] ?? 0) : p.semLocal;
       if (quantidade > disponivel) {
         throw new Error(`So tem ${Math.max(0, disponivel)} peca(s) desse lote na origem.`);
       }

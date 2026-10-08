@@ -12,14 +12,18 @@ export const metadata = { title: "Locais" };
 export const dynamic = "force-dynamic";
 
 export default async function PaginaLocais({ searchParams }: { searchParams: Promise<{ impresso?: string }> }) {
-  const [{ impresso }, locais, impressos, movimentos] = await Promise.all([
+  const [{ impresso }, locais, impressos, movimentos, kitItens] = await Promise.all([
     searchParams,
     prisma.local.findMany({ orderBy: { nome: "asc" } }),
     prisma.impresso.findMany({ orderBy: [{ quando: "desc" }, { criadoEm: "desc" }] }),
     prisma.movimento.findMany({ orderBy: { quando: "desc" } }),
+    prisma.kitItem.findMany(),
   ]);
-  const e = estoque(impressos, movimentos);
-  const usados = new Set(movimentos.flatMap((m) => [m.deLocalId, m.paraLocalId]));
+  const e = estoque(impressos, movimentos, kitItens);
+  const usados = new Set([
+    ...movimentos.flatMap((m) => [m.deLocalId, m.paraLocalId]),
+    ...kitItens.map((k) => k.deLocalId),
+  ]);
   const nomeLocal = (id: string | null) => (id ? (locais.find((l) => l.id === id)?.nome ?? "?") : "Sem local");
   const modelo = (id: string) => impressos.find((i) => i.id === id)?.modelo ?? "?";
   const semLocal = e.itens.filter((i) => i.semLocal > 0);

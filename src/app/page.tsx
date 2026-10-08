@@ -9,14 +9,15 @@ import { Card, Kpi, Titulo, Vazio } from "@/components/ui";
 export const dynamic = "force-dynamic";
 
 export default async function Painel() {
-  const [impressos, locais, movimentos, config] = await Promise.all([
+  const [impressos, locais, movimentos, kitItens, config] = await Promise.all([
     prisma.impresso.findMany({ orderBy: { quando: "desc" } }),
     prisma.local.findMany({ orderBy: { nome: "asc" } }),
     prisma.movimento.findMany(),
+    prisma.kitItem.findMany(),
     lerConfig(),
   ]);
   const t = totais(impressos);
-  const e = estoque(impressos, movimentos);
+  const e = estoque(impressos, movimentos, kitItens);
   const ultimos = impressos.slice(0, 6);
 
   return (

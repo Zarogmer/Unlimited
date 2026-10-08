@@ -60,6 +60,7 @@ function revalidar() {
   revalidatePath("/impressos");
   revalidatePath("/calculos");
   revalidatePath("/locais");
+  revalidatePath("/kits");
 }
 
 export async function salvarImpresso(_prev: EstadoImpresso, formData: FormData): Promise<EstadoImpresso> {
@@ -75,9 +76,15 @@ export async function salvarImpresso(_prev: EstadoImpresso, formData: FormData):
   if (id) {
     const existe = await prisma.impresso.findUnique({ where: { id }, select: { id: true } });
     if (!existe) return { erro: "Esse impresso nao existe mais." };
-    const emLocais = alocadas(await prisma.movimento.findMany({ where: { impressoId: id } }));
-    if (dados.quantidade - dados.perdas < emLocais) {
-      return { erro: `Ja tem ${emLocais} peca(s) desse lote em locais. Tire de la antes de diminuir as pecas boas.` };
+    const [movimentos, kitItens] = await Promise.all([
+      prisma.movimento.findMany({ where: { impressoId: id } }),
+      prisma.kitItem.findMany({ where: { impressoId: id } }),
+    ]);
+    const emUso = alocadas(movimentos, kitItens);
+    if (dados.quantidade - dados.perdas < emUso) {
+      return {
+        erro: `Ja tem ${emUso} peca(s) desse lote em locais ou kits. Tire de la antes de diminuir as pecas boas.`,
+      };
     }
     await prisma.impresso.update({ where: { id }, data: dados });
   } else {
