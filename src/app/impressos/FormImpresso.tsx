@@ -2,7 +2,13 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { puxarFilamento, salvarImpresso, type EstadoImpresso, type FilamentoPuxado } from "./actions";
+import {
+  puxarFilamento,
+  salvarImpresso,
+  type EstadoImpresso,
+  type FilamentoPuxado,
+  type PlacaPuxada,
+} from "./actions";
 import { Amostra, Campo, Card, Erro } from "@/components/ui";
 import { contas, custoMaterial, pecasPorPlacaValida } from "@/lib/impressos";
 import { gramas as fmtGramas, horas, num, numero, paraInput, pct, reais } from "@/lib/formato";
@@ -49,6 +55,9 @@ export function FormImpresso({
   const [puxando, iniciarPuxar] = useTransition();
   const [puxado, setPuxado] = useState<FilamentoPuxado | null>(null);
   const [porPlaca, setPorPlaca] = useState(pecasPorPlacaValida(valores.pecasPorPlaca) > 1);
+  // Projeto com varias placas: quantas vezes cada placa foi impressa e quantas pecas saem de cada uma.
+  const [vezes, setVezes] = useState<Record<number, string>>({});
+  const [pecasCadaPlaca, setPecasCadaPlaca] = useState("1");
 
   const muda = (campo: keyof ValoresImpresso) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setV({ ...v, [campo]: e.target.value });
@@ -74,6 +83,39 @@ export function FormImpresso({
   const placasLote = Math.ceil(c.impressas / porPlacaN);
   const segLote = porPlaca ? seg * placasLote : seg * c.impressas;
 
+  /**
+   * Transforma as placas escolhidas em "por peca": pecas impressas = placas x
+   * pecas em cada uma; gramas e tempo por peca = media do que foi impresso.
+   */
+  function aplicarPlacas(lista: PlacaPuxada[], novasVezes: Record<number, string>, porPlacaTxt: string) {
+    setVezes(novasVezes);
+    setPecasCadaPlaca(porPlacaTxt);
+    const cada = pecasPorPlacaValida(porPlacaTxt);
+    let placas = 0;
+    let g = 0;
+    let s = 0;
+    const usadas: string[] = [];
+    for (const pl of lista) {
+      const n = Math.max(0, Math.trunc(num(novasVezes[pl.indice], 0)));
+      if (n <= 0) continue;
+      placas += n;
+      g += n * pl.gramas100;
+      s += n * pl.segundos;
+      usadas.push(`${pl.nome || `Placa ${pl.indice}`} ×${n}`);
+    }
+    const pecas = placas * cada;
+    if (pecas <= 0) return;
+    setPorPlaca(false);
+    setV((atual) => ({
+      ...atual,
+      quantidade: String(pecas),
+      pecasPorPlaca: "1",
+      gramas100: paraInput(g / pecas, 2),
+      segundosPeca: s > 0 ? String(Math.round(s / pecas)) : atual.segundosPeca,
+      obs: !atual.obs.trim() || atual.obs.startsWith("Placas: ") ? `Placas: ${usadas.join(", ")}` : atual.obs,
+    }));
+  }
+
   function puxar() {
     if (!v.link.trim()) {
       setPuxado({ ok: false, erro: "Cole o link do modelo no MakerWorld primeiro." });
@@ -82,7 +124,12 @@ export function FormImpresso({
     iniciarPuxar(async () => {
       const r = await puxarFilamento(v.link);
       setPuxado(r);
-      if (r.ok) {
+      const lista = r.listaPlacas ?? [];
+      if (r.ok && lista.length > 1) {
+        // Varias placas: comeca com o projeto inteiro uma vez; a pessoa ajusta o que imprimiu.
+        setV((atual) => ({ ...atual, modelo: atual.modelo.trim() ? atual.modelo : (r.titulo ?? atual.modelo) }));
+        aplicarPlacas(lista, Object.fromEntries(lista.map((pl) => [pl.indice, "1"])), "1");
+      } else if (r.ok) {
         setV((atual) => ({
           ...atual,
           modelo: atual.modelo.trim() ? atual.modelo : r.titulo ?? atual.modelo,
@@ -143,20 +190,31 @@ export function FormImpresso({
                   {puxado.placas ? ` · ${puxado.placas} placa(s)` : ""} · {fmtGramas(puxado.gramas100 ?? 0)} a 100%
                   {puxado.segundos ? ` · ~${horas(puxado.segundos)}` : ""} (perfil inteiro)
                 </div>
-                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                  {puxado.cores?.map((cor) => (
-                    <span key={cor.hex} className="inline-flex items-center gap-1">
-                      <Amostra hex={cor.hex} nome={cor.nome} /> <span className="text-muted">{fmtGramas(cor.gramas100)}</span>
-                    </span>
-                  ))}
-                </div>
-                <div className="mt-2 text-xs text-muted">
-                  {!porPlaca
-                    ? 'O MakerWorld informa a placa inteira. Se ela imprime varias pecas de uma vez (chaveiros, miniaturas), escolha "Por placa" abaixo e diga quantas.'
-                    : (puxado.placas ?? 0) > 1
-                      ? `Esse perfil tem ${puxado.placas} placas: os gramas e o tempo sao a soma delas. Em "Pecas por placa" conte as pecas de todas.`
-                      : "Os gramas e o tempo sao da placa: cada peca leva a parte dela."}
-                </div>
+                {(puxado.listaPlacas?.length ?? 0) > 1 ? (
+                  <EscolherPlacas
+                    lista={puxado.listaPlacas ?? []}
+                    vezes={vezes}
+                    pecasCadaPlaca={pecasCadaPlaca}
+                    onMudar={(novasVezes, porPlacaTxt) => aplicarPlacas(puxado.listaPlacas ?? [], novasVezes, porPlacaTxt)}
+                  />
+                ) : (
+                  <>
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                      {puxado.cores?.map((cor) => (
+                        <span key={cor.hex} className="inline-flex items-center gap-1">
+                          <Amostra hex={cor.hex} nome={cor.nome} /> <span className="text-muted">{fmtGramas(cor.gramas100)}</span>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-2 text-xs text-muted">
+                      {!porPlaca
+                        ? 'O MakerWorld informa a placa inteira. Se ela imprime varias pecas de uma vez (chaveiros, miniaturas), escolha "Por placa" abaixo e diga quantas.'
+                        : (puxado.placas ?? 0) > 1
+                          ? `Esse perfil tem ${puxado.placas} placas: os gramas e o tempo sao a soma delas. Em "Pecas por placa" conte as pecas de todas.`
+                          : "Os gramas e o tempo sao da placa: cada peca leva a parte dela."}
+                    </div>
+                  </>
+                )}
               </div>
             )}
             <div className="sm:col-span-2">
@@ -337,5 +395,89 @@ export function FormImpresso({
         </Card>
       </div>
     </form>
+  );
+}
+
+/**
+ * Projeto com varias placas (ex.: um chaveiro de cada cor por placa): diga
+ * quantas vezes imprimiu cada uma. Placa que nao imprimiu fica com 0.
+ */
+function EscolherPlacas({
+  lista,
+  vezes,
+  pecasCadaPlaca,
+  onMudar,
+}: {
+  lista: PlacaPuxada[];
+  vezes: Record<number, string>;
+  pecasCadaPlaca: string;
+  onMudar: (vezes: Record<number, string>, pecasCadaPlaca: string) => void;
+}) {
+  const cada = pecasPorPlacaValida(pecasCadaPlaca);
+  const placas = lista.reduce((s, pl) => s + Math.max(0, Math.trunc(num(vezes[pl.indice], 0))), 0);
+  const gramas = lista.reduce((s, pl) => s + Math.max(0, Math.trunc(num(vezes[pl.indice], 0))) * pl.gramas100, 0);
+  return (
+    <div className="mt-2">
+      <div className="mb-2 text-xs text-muted">
+        Esse projeto tem {lista.length} placas. Diga quantas vezes voce imprimiu cada uma (0 = nao imprimiu): as pecas,
+        os gramas e o tempo abaixo saem disso.
+      </div>
+      <div className="space-y-1">
+        {lista.map((pl) => (
+          <div key={pl.indice} className="flex items-center gap-3 rounded-md border border-border/60 px-2 py-1">
+            {pl.miniatura && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={pl.miniatura} alt="" className="h-10 w-10 shrink-0 rounded bg-surface-2 object-contain" loading="lazy" />
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="font-medium">
+                {pl.indice}. {pl.nome || `Placa ${pl.indice}`}{" "}
+                <span className="font-normal text-muted">
+                  · {fmtGramas(pl.gramas100)}
+                  {pl.segundos > 0 && ` · ${horas(pl.segundos)}`}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-x-3 text-xs">
+                {pl.cores.map((cor) => (
+                  <span key={cor.hex} className="inline-flex items-center gap-1">
+                    <span className="inline-block h-2.5 w-2.5 rounded-full border border-white/20" style={{ background: cor.hex }} aria-hidden />
+                    <span className="text-muted">
+                      {cor.nome} {fmtGramas(cor.gramas100)}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </div>
+            <label className="flex items-center gap-1 whitespace-nowrap text-xs text-muted">
+              <input
+                type="number"
+                min={0}
+                className="campo w-16! py-1"
+                value={vezes[pl.indice] ?? "0"}
+                onChange={(e) => onMudar({ ...vezes, [pl.indice]: e.target.value }, pecasCadaPlaca)}
+                aria-label={`Vezes que imprimiu a placa ${pl.indice}`}
+              />
+              x
+            </label>
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
+        <label className="flex items-center gap-1 whitespace-nowrap">
+          <input
+            type="number"
+            min={1}
+            className="campo w-16! py-1"
+            value={pecasCadaPlaca}
+            onChange={(e) => onMudar(vezes, e.target.value)}
+          />
+          peca(s) em cada placa
+        </label>
+        <span>
+          · {placas} placa(s) = {placas * cada} peca(s) · {fmtGramas(gramas)} no total
+          {placas * cada > 0 && `, ${fmtGramas(gramas / (placas * cada))} por peca`}
+        </span>
+      </div>
+    </div>
   );
 }

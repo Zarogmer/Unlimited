@@ -110,6 +110,17 @@ export interface FilamentoPuxado {
   gramas100?: number;
   segundos?: number;
   cores?: Array<{ nome: string; hex: string; gramas100: number }>;
+  /** Cada placa do perfil (gramas ja com a margem das configuracoes). */
+  listaPlacas?: PlacaPuxada[];
+}
+
+export interface PlacaPuxada {
+  indice: number;
+  nome: string;
+  gramas100: number;
+  segundos: number;
+  miniatura: string;
+  cores: Array<{ nome: string; hex: string; gramas100: number }>;
 }
 
 /**
@@ -126,6 +137,7 @@ export async function puxarFilamento(link: string): Promise<FilamentoPuxado> {
       roloG: config.pesoRoloG,
       margemPct: config.margemPct,
     });
+    const fatorMargem = 1 + Math.max(0, config.margemPct) / 100;
     return {
       ok: true,
       titulo: info.titulo,
@@ -134,6 +146,14 @@ export async function puxarFilamento(link: string): Promise<FilamentoPuxado> {
       gramas100: res.gramasPeca100,
       segundos: info.segundos,
       cores: res.cores.map((c) => ({ nome: c.nome, hex: c.hex, gramas100: c.gramas100 })),
+      listaPlacas: info.listaPlacas.map((pl) => ({
+        indice: pl.indice,
+        nome: pl.nome,
+        gramas100: pl.gramas * fatorMargem,
+        segundos: pl.segundos,
+        miniatura: pl.miniatura,
+        cores: pl.cores.map((c) => ({ nome: c.nome, hex: c.hex, gramas100: c.gramas * fatorMargem })),
+      })),
     };
   } catch (err) {
     if (err instanceof ErroFilamento) return { ok: false, erro: err.message };

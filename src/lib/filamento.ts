@@ -79,11 +79,23 @@ export interface PerfilResumo {
   padrao: boolean;
 }
 
+/** Uma placa do perfil: o MakerWorld informa gramas e tempo de cada uma. */
+export interface PlacaResumo {
+  indice: number;
+  nome: string;
+  gramas: number;
+  segundos: number;
+  miniatura: string;
+  cores: Array<{ hex: string; nome: string; gramas: number }>;
+}
+
 export interface InfoModelo {
   titulo: string;
   perfil: string;
   placas: number;
   segundos: number;
+  /** Detalhe de cada placa (vazio no calculo manual). */
+  listaPlacas: PlacaResumo[];
   idModelo: number | null;
   idPerfil: number | null;
   outrosPerfis: PerfilResumo[];
@@ -122,6 +134,9 @@ interface MwFilamento {
   usedM?: number | string;
 }
 interface MwPlaca {
+  index?: number | string;
+  name?: string;
+  thumbnail?: { url?: string };
   weight?: number | string;
   prediction?: number | string;
   filaments?: MwFilamento[];
@@ -241,6 +256,27 @@ export function escolherPerfil(modelo: MwModelo, idPerfil: number | null): MwIns
   }
   const padrao = Number(modelo.defaultInstanceId ?? 0);
   return instancias.find((i) => Number(i.id ?? 0) === padrao) ?? instancias[0];
+}
+
+/** Cada placa do perfil com seus gramas (soma das cores), tempo e cores. */
+export function placasDoPerfil(perfil: MwInstancia): PlacaResumo[] {
+  return placasDe(perfil).map((p, n) => {
+    const cores = (p.filaments ?? [])
+      .map((f) => {
+        const hex = String(f.color || "#000000").toUpperCase();
+        return { hex, nome: nomeDaCor(hex), gramas: Number(f.usedG ?? 0) || 0 };
+      })
+      .filter((c) => c.gramas > 0);
+    const somaCores = cores.reduce((s, c) => s + c.gramas, 0);
+    return {
+      indice: Number(p.index ?? n + 1) || n + 1,
+      nome: limparHtml(p.name ?? ""),
+      gramas: somaCores > 0 ? somaCores : Number(p.weight ?? 0) || 0,
+      segundos: Math.trunc(Number(p.prediction ?? 0)) || 0,
+      miniatura: String(p.thumbnail?.url ?? ""),
+      cores,
+    };
+  });
 }
 
 /** Soma os filamentos de todas as placas do perfil. */
@@ -529,6 +565,7 @@ export async function calcularPorLink(
     perfil: perfilTitulo,
     placas,
     segundos,
+    listaPlacas: placasDoPerfil(perfil),
     idModelo,
     idPerfil,
     outrosPerfis: perfisDoModelo(modelo).filter((p) => p.id !== idPerfil),
@@ -550,7 +587,7 @@ export function calcularManual(gramasTexto: string, titulo: string, op: OpcoesCa
   return {
     res,
     texto: relatorio(res, { titulo: nome }),
-    info: { titulo: nome, perfil: "", placas: 0, segundos: 0, idModelo: null, idPerfil: null, outrosPerfis: [] },
+    info: { titulo: nome, perfil: "", placas: 0, segundos: 0, listaPlacas: [], idModelo: null, idPerfil: null, outrosPerfis: [] },
     origem: "manual",
     link: "",
   };
