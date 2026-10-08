@@ -61,16 +61,15 @@ model Impresso {
   modelo        String
   link          String      @default("")
   escalaPct     Float       @default(100)
-  quantidade    Int         @default(1) // pecas impressas (boas + perdidas)
+  quantidade    Int         @default(1) // pecas impressas na placa (boas + perdidas)
   perdas        Int         @default(0) // pecas que falharam / sairam com defeito e nao da pra vender
-  pecasPorPlaca Int         @default(1) // 1 = gramas e tempo sao de UMA peca; N = sao da placa inteira com N pecas
-  gramas100     Float       @default(0) // gramas de filamento no tamanho original (100%), por peca ou por placa (ver pecasPorPlaca)
+  gramasPlaca   Float       @default(0) @map("gramas100") // gramas de filamento da placa inteira (todas as pecas do lote) no tamanho original (100%)
   precoRolo     Float       @default(0) // R$ do rolo usado na conta (0 = custoPeca foi digitado)
   pesoRoloG     Float       @default(0)
   custoPeca     Float       @default(0) // custo do material por peca (calculado ou digitado)
   outrosPeca    Float       @default(0)
   precoVenda    Float       @default(0)
-  segundosPeca  Int         @default(0) // tempo de impressao, por peca ou por placa (ver pecasPorPlaca)
+  segundosPlaca Int         @default(0) @map("segundosPeca") // tempo de impressao da placa inteira
   obs           String      @default("")
   calculoId     String?
   calculo       Calculo?    @relation(fields: [calculoId], references: [id], onDelete: SetNull)

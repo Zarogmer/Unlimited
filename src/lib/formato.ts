@@ -41,6 +41,21 @@ export function horas(segundos: number): string {
   return h ? `${h}h${String(m).padStart(2, "0")}` : `${m} min`;
 }
 
+/**
+ * Tempo digitado -> segundos. Aceita "9h20", "9h", "45min", "9:20" (h:min)
+ * ou so o numero de segundos ("33600"). Texto invalido volta 0.
+ */
+export function segundosDeTexto(valor: unknown): number {
+  const txt = String(valor ?? "").trim().toLowerCase().replace(/\s/g, "");
+  if (!txt) return 0;
+  const hm = txt.match(/^(\d+)(?:h|:)(\d{1,2})?(?:m|min)?$/);
+  if (hm) return Number(hm[1]) * 3600 + Number(hm[2] ?? 0) * 60;
+  const m = txt.match(/^(\d+)(?:m|min)$/);
+  if (m) return Number(m[1]) * 60;
+  const n = Math.trunc(num(txt, 0));
+  return n > 0 ? n : 0;
+}
+
 /** Data/hora curta em pt-BR: "30/09/2026 15:58". */
 export function dataHora(data: Date | string): string {
   const d = typeof data === "string" ? new Date(data) : data;

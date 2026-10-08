@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { lerConfig } from "@/lib/config";
-import { paraInput } from "@/lib/formato";
+import { horas, paraInput } from "@/lib/formato";
 import { Titulo } from "@/components/ui";
 import { FormApagar } from "@/components/FormApagar";
 import { FormImpresso } from "../../FormImpresso";
@@ -43,14 +43,13 @@ export default async function PaginaEditarImpresso({ params }: { params: Promise
           escalaPct: paraInput(i.escalaPct, 2),
           quantidade: String(i.quantidade),
           perdas: String(i.perdas),
-          pecasPorPlaca: String(i.pecasPorPlaca),
-          gramas100: i.gramas100 > 0 ? paraInput(i.gramas100, 1) : "",
+          gramasPlaca: i.gramasPlaca > 0 ? paraInput(i.gramasPlaca, 2) : "",
           precoRolo: paraInput(i.precoRolo > 0 ? i.precoRolo : config.precoRolo),
           pesoRoloG: paraInput(i.pesoRoloG > 0 ? i.pesoRoloG : config.pesoRoloG, 0),
           custoPeca: paraInput(i.custoPeca, 2),
           outrosPeca: paraInput(i.outrosPeca, 2),
           precoVenda: paraInput(i.precoVenda, 2),
-          segundosPeca: i.segundosPeca ? String(i.segundosPeca) : "",
+          segundosPlaca: horas(i.segundosPlaca),
           obs: i.obs,
         }}
       />

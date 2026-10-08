@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { lerConfig } from "@/lib/config";
-import { num } from "@/lib/formato";
-import { custoMaterial, pecasPorPlacaValida } from "@/lib/impressos";
+import { num, segundosDeTexto } from "@/lib/formato";
+import { custoMaterial } from "@/lib/impressos";
 import { alocadas } from "@/lib/locais";
 import { calcularPorLink, ErroFilamento } from "@/lib/filamento";
 
@@ -23,17 +23,16 @@ function lerFormulario(formData: FormData) {
   }
   const calculoId = String(formData.get("calculoId") ?? "").trim() || null;
   const escalaPct = num(formData.get("escalaPct"), 100) || 100;
-  const gramas100 = Math.max(0, num(formData.get("gramas100")));
+  const gramasPlaca = Math.max(0, num(formData.get("gramasPlaca")));
   const precoRolo = Math.max(0, num(formData.get("precoRolo")));
   const pesoRoloG = Math.max(0, num(formData.get("pesoRoloG")));
-  const pecasPorPlaca = pecasPorPlacaValida(formData.get("pecasPorPlaca"));
   // Com gramas informadas o custo do material sai da conta do filamento
-  // (gramas da placa / pecas por placa = gramas da peca); sem gramas vale o
+  // (gramas da placa / pecas da placa = gramas da peca); sem gramas vale o
   // valor digitado direto.
   const quantidade = Math.max(1, Math.trunc(num(formData.get("quantidade"), 1)));
   const custoPeca =
-    gramas100 > 0
-      ? custoMaterial(gramas100 / pecasPorPlaca, escalaPct, precoRolo, pesoRoloG).custo
+    gramasPlaca > 0
+      ? custoMaterial(gramasPlaca / quantidade, escalaPct, precoRolo, pesoRoloG).custo
       : num(formData.get("custoPeca"));
   return {
     modelo: modelo || "(sem nome)",
@@ -41,15 +40,14 @@ function lerFormulario(formData: FormData) {
     quando,
     escalaPct,
     quantidade,
-    pecasPorPlaca,
     perdas: Math.min(quantidade, Math.max(0, Math.trunc(num(formData.get("perdas"), 0)))),
-    gramas100,
+    gramasPlaca,
     precoRolo,
     pesoRoloG,
     custoPeca,
     outrosPeca: num(formData.get("outrosPeca")),
     precoVenda: num(formData.get("precoVenda")),
-    segundosPeca: Math.max(0, Math.trunc(num(formData.get("segundosPeca"), 0))),
+    segundosPlaca: segundosDeTexto(formData.get("segundosPlaca")),
     obs: String(formData.get("obs") ?? "").trim(),
     calculoId,
   };
@@ -119,7 +117,6 @@ export interface PlacaPuxada {
   nome: string;
   gramas100: number;
   segundos: number;
-  miniatura: string;
   cores: Array<{ nome: string; hex: string; gramas100: number }>;
 }
 
@@ -151,7 +148,6 @@ export async function puxarFilamento(link: string): Promise<FilamentoPuxado> {
         nome: pl.nome,
         gramas100: pl.gramas * fatorMargem,
         segundos: pl.segundos,
-        miniatura: pl.miniatura,
         cores: pl.cores.map((c) => ({ nome: c.nome, hex: c.hex, gramas100: c.gramas * fatorMargem })),
       })),
     };

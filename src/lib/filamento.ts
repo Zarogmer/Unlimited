@@ -85,7 +85,6 @@ export interface PlacaResumo {
   nome: string;
   gramas: number;
   segundos: number;
-  miniatura: string;
   cores: Array<{ hex: string; nome: string; gramas: number }>;
 }
 
@@ -136,7 +135,6 @@ interface MwFilamento {
 interface MwPlaca {
   index?: number | string;
   name?: string;
-  thumbnail?: { url?: string };
   weight?: number | string;
   prediction?: number | string;
   filaments?: MwFilamento[];
@@ -273,7 +271,6 @@ export function placasDoPerfil(perfil: MwInstancia): PlacaResumo[] {
       nome: limparHtml(p.name ?? ""),
       gramas: somaCores > 0 ? somaCores : Number(p.weight ?? 0) || 0,
       segundos: Math.trunc(Number(p.prediction ?? 0)) || 0,
-      miniatura: String(p.thumbnail?.url ?? ""),
       cores,
     };
   });
