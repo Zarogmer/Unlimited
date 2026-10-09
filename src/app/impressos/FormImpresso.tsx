@@ -98,6 +98,8 @@ export function FormImpresso({
       quantidade: p.pecas > 0 ? String(p.pecas) : atual.quantidade,
       gramasPlaca: p.gramas !== null ? paraInput(p.gramas, 2) : atual.gramasPlaca,
       segundosPlaca: p.segundos !== null ? horas(p.segundos) : atual.segundosPlaca,
+      // Gramas do fatiador ja estao no tamanho impresso: nao reduzir de novo.
+      escalaPct: p.gramas !== null ? "100" : atual.escalaPct,
     }));
   }
 
@@ -248,7 +250,14 @@ export function FormImpresso({
             <Campo rotulo="Quando">
               <input name="quando" type="date" className="campo" value={v.quando} onChange={muda("quando")} />
             </Campo>
-            <Campo rotulo="Escala (%)" dica={`Tamanho no fatiador. Fator no peso: ${numero(mat.fator, 4)}.`}>
+            <Campo
+              rotulo="Escala (%)"
+              dica={
+                escala !== 100
+                  ? `Reduz os gramas (fator ${numero(mat.fator, 4)}). So use com gramas do MakerWorld (tamanho original): os do seu fatiador ja estao na escala, ai deixe 100.`
+                  : "Gramas do seu fatiador ja estao na escala impressa: deixe 100. So mude com gramas do MakerWorld."
+              }
+            >
               <input name="escalaPct" className="campo" value={v.escalaPct} onChange={muda("escalaPct")} inputMode="decimal" />
             </Campo>
             <Campo rotulo="Pecas na placa" dica="Quantas pecas sairam da placa, boas e ruins.">
