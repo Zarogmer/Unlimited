@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { puxarFilamento, salvarImpresso, type EstadoImpresso, type FilamentoPuxado } from "./actions";
 import { Amostra, Campo, Card, Erro } from "@/components/ui";
 import { contas, custoMaterial } from "@/lib/impressos";
+import { lerTresMf, type ArquivoLido, type PlacaArquivo } from "@/lib/tresmf";
 import { gramas as fmtGramas, horas, num, numero, paraInput, pct, reais, segundosDeTexto } from "@/lib/formato";
 
 /**
@@ -52,6 +53,8 @@ export function FormImpresso({
   const [puxando, iniciarPuxar] = useTransition();
   const [puxado, setPuxado] = useState<FilamentoPuxado | null>(null);
   const [placaEscolhida, setPlacaEscolhida] = useState("1");
+  const [lendo, setLendo] = useState(false);
+  const [arquivo, setArquivo] = useState<{ nome: string; lido?: ArquivoLido; erro?: string; placa?: number } | null>(null);
 
   const muda = (campo: keyof ValoresImpresso) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setV({ ...v, [campo]: e.target.value });
@@ -85,6 +88,34 @@ export function FormImpresso({
       gramasPlaca: paraInput(g, 1),
       segundosPlaca: s > 0 ? horas(s) : atual.segundosPlaca,
     }));
+  }
+
+  /** Preenche pecas, gramas e tempo com uma placa do arquivo do Bambu Studio. */
+  function usarPlacaArquivo(nome: string, p: PlacaArquivo) {
+    setV((atual) => ({
+      ...atual,
+      modelo: atual.modelo.trim() ? atual.modelo : nome.replace(/(\.gcode)?\.3mf$/i, ""),
+      quantidade: p.pecas > 0 ? String(p.pecas) : atual.quantidade,
+      gramasPlaca: p.gramas !== null ? paraInput(p.gramas, 2) : atual.gramasPlaca,
+      segundosPlaca: p.segundos !== null ? horas(p.segundos) : atual.segundosPlaca,
+    }));
+  }
+
+  async function lerArquivo(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setLendo(true);
+    try {
+      const lido = await lerTresMf(f);
+      // Comeca pela primeira placa fatiada (ou a primeira, se nenhuma foi).
+      const p = lido.placas.find((x) => x.gramas !== null) ?? lido.placas[0];
+      setArquivo({ nome: f.name, lido, placa: p.indice });
+      usarPlacaArquivo(f.name, p);
+    } catch (err) {
+      setArquivo({ nome: f.name, erro: (err as Error).message });
+    } finally {
+      setLendo(false);
+    }
   }
 
   function puxar() {
@@ -133,6 +164,37 @@ export function FormImpresso({
               <input name="modelo" className="campo" value={v.modelo} onChange={muda("modelo")} required />
             </Campo>
             <Campo
+              rotulo="Arquivo do Bambu Studio"
+              className="sm:col-span-2"
+              dica="O fatiado (.gcode.3mf) traz pecas, gramas e tempo certinhos. O arquivo e lido aqui no navegador, nao e enviado."
+            >
+              <input
+                type="file"
+                accept=".3mf"
+                onChange={lerArquivo}
+                disabled={lendo}
+                className="campo file:mr-3 file:rounded file:border-0 file:bg-surface-2 file:px-3 file:py-1 file:text-text"
+              />
+            </Campo>
+            {arquivo?.erro && (
+              <div className="sm:col-span-2">
+                <Erro mensagem={`${arquivo.nome}: ${arquivo.erro}`} />
+              </div>
+            )}
+            {arquivo?.lido && (
+              <ResumoArquivo
+                nome={arquivo.nome}
+                lido={arquivo.lido}
+                placa={arquivo.placa ?? arquivo.lido.placas[0].indice}
+                onPlaca={(indice) => {
+                  const p = arquivo.lido?.placas.find((x) => x.indice === indice);
+                  if (!p) return;
+                  setArquivo({ ...arquivo, placa: indice });
+                  usarPlacaArquivo(arquivo.nome, p);
+                }}
+              />
+            )}
+            <Campo
               rotulo="Link do MakerWorld"
               className="sm:col-span-2"
               dica="Opcional. Com o link, o botao puxa os gramas e o tempo da placa do projeto."
@@ -179,7 +241,7 @@ export function FormImpresso({
                   ))}
                 </div>
                 <div className="text-xs text-muted">
-                  Montou a sua propria placa no fatiador? Use os gramas e o tempo que ele mostra: sao mais certos.
+                  Montou a sua propria placa no fatiador? Use o arquivo fatiado dela: os gramas e o tempo sao mais certos.
                 </div>
               </div>
             )}
@@ -304,5 +366,57 @@ export function FormImpresso({
         </Card>
       </div>
     </form>
+  );
+}
+
+function ResumoArquivo({
+  nome,
+  lido,
+  placa,
+  onPlaca,
+}: {
+  nome: string;
+  lido: ArquivoLido;
+  placa: number;
+  onPlaca: (indice: number) => void;
+}) {
+  const p = lido.placas.find((x) => x.indice === placa) ?? lido.placas[0];
+  const fatiada = p.gramas !== null && p.segundos !== null;
+  return (
+    <div className="space-y-2 rounded-md border border-border bg-bg px-3 py-2 text-sm sm:col-span-2">
+      <div className="text-muted">{nome}</div>
+      {lido.placas.length > 1 && (
+        <select className="campo" value={placa} onChange={(e) => onPlaca(Number(e.target.value))}>
+          {lido.placas.map((x) => (
+            <option key={x.indice} value={x.indice}>
+              Placa {x.indice} · {x.pecas} peca(s)
+              {x.gramas !== null ? ` · ${fmtGramas(x.gramas)}` : ""}
+              {x.segundos !== null ? ` · ${horas(x.segundos)}` : ""}
+            </option>
+          ))}
+        </select>
+      )}
+      <div>
+        {p.pecas} peca(s) na placa
+        {p.gramas !== null && <> · {fmtGramas(p.gramas, 2)}</>}
+        {p.segundos !== null && <> · {horas(p.segundos)}</>}
+      </div>
+      {p.cores.length > 0 && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          {p.cores.map((cor) => (
+            <span key={cor.hex} className="inline-flex items-center gap-1">
+              <Amostra hex={cor.hex} nome="" /> <span className="text-muted">{fmtGramas(cor.gramas, 2)}</span>
+            </span>
+          ))}
+        </div>
+      )}
+      {!fatiada && (
+        <p className="text-xs text-accent">
+          Esse e o projeto, sem o fatiamento: so deu pra contar as pecas. Pra vir os gramas e o tempo, no Bambu Studio
+          fatie a placa e use Arquivo › Exportar › Exportar arquivo fatiado da placa (.gcode.3mf), e escolha esse arquivo
+          aqui. Ou digite os gramas e o tempo que o fatiador mostra.
+        </p>
+      )}
+    </div>
   );
 }
